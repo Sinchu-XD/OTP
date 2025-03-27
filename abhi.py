@@ -1,5 +1,6 @@
 import asyncio
 import requests
+import json
 from pyrogram import Client, filters
 
 # ✅ Configuration
@@ -40,31 +41,42 @@ def get_countries():
 def get_services():
     url = f"https://api.sms-activate.org/stubs/handler_api.php?api_key={SMS_ACTIVATE_API_KEY}&action=getTopServices"
     response = requests.get(url)
-    
+
     try:
-        print(f"🔍 API Response (Services): {response.text}")  # Debugging
+        print(f"🔍 API Raw Response: {response.text}")  # Debugging output
 
-        # Convert response to JSON if possible
-        data = response.json()
-
-        if isinstance(data, str):  # Check if API returned a string instead of JSON
-            print("⚠️ API returned a string instead of JSON.")
+        # Check if the response is JSON
+        try:
+            data = response.json()
+        except json.JSONDecodeError:
+            print("⚠️ API did not return valid JSON. Response might be an error message.")
             return {}
 
+        # Ensure we have a dictionary response
+        if not isinstance(data, dict):
+            print("⚠️ API returned unexpected format.")
+            return {}
+
+        # Extract country names and services
         service_list = {}
         for country_id, details in data.items():
-            country_name = details.get("cName", "Unknown Country")
-            services = details.get("services", {})
+            if isinstance(details, dict):  # Ensure details are in the expected format
+                country_name = details.get("cName", "Unknown Country")
+                services = details.get("services", {})
 
-            service_list[country_id] = {
-                "country": country_name,
-                "services": services
-            }
-
+                service_list[country_id] = {
+                    "country": country_name,
+                    "services": services
+                }
+        
         return service_list
     except Exception as e:
         print(f"⚠️ API Error (Services): {e}")
         return {}
+
+# Test the function
+services = get_services()
+print(services)
 
 
 
