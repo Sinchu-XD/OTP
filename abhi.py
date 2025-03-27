@@ -1,6 +1,6 @@
 import requests
 import json
-from pyrogram import Client, filters
+from pyrofork import Client, filters
 
 # ✅ Configuration
 API_ID = 25024171
@@ -28,7 +28,7 @@ def get_countries():
 
     try:
         data = json.loads(response)  # Convert to JSON
-        return {key: value.get("eng", "Unknown") for key, value in data.items()}
+        return {key: value.get("cName", "Unknown Country") for key, value in data.items()}
     except json.JSONDecodeError:
         return f"❌ API Error: {response}"
 
@@ -45,13 +45,11 @@ def get_services():
 
         services_list = {}
         for country_id, details in data.items():
-            country_name = details.get("cName", "Unknown Country")
+            country_name = details.get("cName", f"Country {country_id}")
             services = details.get("services", {})
 
-            services_list[country_id] = {
-                "country": country_name,
-                "services": services
-            }
+            if services:
+                services_list[country_name] = list(services.keys())  # Get service codes
 
         return services_list
     except json.JSONDecodeError:
@@ -93,11 +91,9 @@ async def services(client, message):
         return
 
     formatted_services = []
-    for country_id, data in services_data.items():
-        country_name = data["country"]
-        services_list = ", ".join(data["services"].keys()) if data["services"] else "No Services"
-
-        formatted_services.append(f"**{country_name}**:\n`{services_list}`\n")
+    for country, services in services_data.items():
+        service_list = ", ".join(services) if services else "No Services"
+        formatted_services.append(f"🌍 **{country}**:\n`{service_list}`\n")
 
     services_text = "\n".join(formatted_services)
 
