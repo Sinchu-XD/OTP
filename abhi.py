@@ -42,16 +42,19 @@ def get_services():
     response = requests.get(url)
 
     try:
+        print(f"🔍 API Response (Services): {response.text}")  # ✅ Print full response
+
         data = response.json()
         if not data:
+            print("❌ API returned an empty response.")
             return {}
 
-        # ✅ Fix KeyError (Use `.get()` to avoid errors)
         service_list = {key: value.get("eng", "Unknown") for key, value in data.items()}
         return service_list
     except Exception as e:
         print(f"⚠️ API Error (Services): {e}")
         return {}
+
 
 
 # 🚀 Start Command
