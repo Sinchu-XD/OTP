@@ -109,14 +109,26 @@ async def balance(client, message):
 # 📱 Get Services Command (Fixed)
 @app.on_message(filters.command("services"))
 async def services(client, message):
-    services = get_services()
-    
-    if not services:
+    services_data = get_services()  # Fetch services from API
+
+    if not services_data:
         await message.reply_text("❌ No services available.")
         return
 
-    service_list = "\n".join([f"{key}: {name}" for key, name in services.items()])
-    await message.reply_text(f"📱 **Available Services:**\n{service_list}")
+    try:
+        formatted_services = []
+        for country_id, data in services_data["data"].items():
+            country_name = data["cName"]
+            services_list = ", ".join(data["services"].keys())
+
+            formatted_services.append(f"**{country_name}**:\n`{services_list}`\n")
+
+        services_text = "\n".join(formatted_services)
+
+        await message.reply_text(f"📱 **Available Services:**\n\n{services_text}")
+    except Exception as e:
+        await message.reply_text(f"⚠️ Error parsing services: {e}")
+
 
 
 # 🌍 Get Countries Command (Fixed)
