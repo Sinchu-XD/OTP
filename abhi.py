@@ -18,44 +18,40 @@ def get_balance():
     return response if response else "❌ Failed to fetch balance."
 
 
-# 🌍 Get Available Countries
+# 🌍 Get Available Countries (Fixed)
 def get_countries():
     url = f"https://api.sms-activate.org/stubs/handler_api.php?api_key={SMS_ACTIVATE_API_KEY}&action=getCountries"
-    response = requests.get(url).json()
-    return response if response else {}
+    response = requests.get(url)
+
+    try:
+        data = response.json()
+        if not data:
+            return {}
+
+        # ✅ Fix KeyError (Use `.get()` to avoid errors)
+        country_list = {key: value.get("eng", "Unknown") for key, value in data.items()}
+        return country_list
+    except Exception as e:
+        print(f"⚠️ API Error (Countries): {e}")
+        return {}
 
 
-# 📱 Get Available Services
+# 📱 Get Available Services (Fixed)
 def get_services():
     url = f"https://api.sms-activate.org/stubs/handler_api.php?api_key={SMS_ACTIVATE_API_KEY}&action=getServices"
-    response = requests.get(url).json()
-    return response if response else {}
+    response = requests.get(url)
 
+    try:
+        data = response.json()
+        if not data:
+            return {}
 
-# 🛒 Buy a Number for OTP
-def buy_number(service, country):
-    url = f"https://api.sms-activate.org/stubs/handler_api.php?api_key={SMS_ACTIVATE_API_KEY}&action=getNumber&service={service}&country={country}"
-    response = requests.get(url).text
-    if response.startswith("ACCESS_NUMBER"):
-        _, activation_id, phone_number = response.split(":")
-        return activation_id, phone_number
-    return None, None
-
-
-# 🔄 Check for OTP
-def check_otp(activation_id):
-    url = f"https://api.sms-activate.org/stubs/handler_api.php?api_key={SMS_ACTIVATE_API_KEY}&action=getStatus&id={activation_id}"
-    response = requests.get(url).text
-    if response.startswith("STATUS_OK"):
-        return response.split(":")[1]  # Extract OTP
-    return None
-
-
-# ❌ Cancel Order (If not needed)
-def cancel_order(activation_id):
-    url = f"https://api.sms-activate.org/stubs/handler_api.php?api_key={SMS_ACTIVATE_API_KEY}&action=setStatus&id={activation_id}&status=8"
-    response = requests.get(url).text
-    return response
+        # ✅ Fix KeyError (Use `.get()` to avoid errors)
+        service_list = {key: value.get("eng", "Unknown") for key, value in data.items()}
+        return service_list
+    except Exception as e:
+        print(f"⚠️ API Error (Services): {e}")
+        return {}
 
 
 # 🚀 Start Command
@@ -72,9 +68,6 @@ async def help(client, message):
 /balance - 💰 Check account balance
 /services - 📱 Get available services
 /countries - 🌍 Get available countries
-/buy <service_id> <country_id> - 🛒 Buy a number
-/checkotp <activation_id> - 🔑 Check OTP
-/cancel <activation_id> - ❌ Cancel order
 """
     await message.reply_text(help_text)
 
@@ -86,97 +79,30 @@ async def balance(client, message):
     await message.reply_text(f"💰 **Your Balance:** `{balance} RUB`")
 
 
-# 📱 Get Services Command
+# 📱 Get Services Command (Fixed)
 @app.on_message(filters.command("services"))
 async def services(client, message):
     services = get_services()
+    
     if not services:
         await message.reply_text("❌ No services available.")
         return
 
-    service_list = "\n".join([f"{key}: {value['russian']}" for key, value in services.items()])
+    service_list = "\n".join([f"{key}: {name}" for key, name in services.items()])
     await message.reply_text(f"📱 **Available Services:**\n{service_list}")
 
 
-# 🌍 Get Countries Command
+# 🌍 Get Countries Command (Fixed)
 @app.on_message(filters.command("countries"))
 async def countries(client, message):
     countries = get_countries()
+    
     if not countries:
         await message.reply_text("❌ No countries available.")
         return
 
-    country_list = "\n".join([f"{key}: {value['russian']}" for key, value in countries.items()])
+    country_list = "\n".join([f"{key}: {name}" for key, name in countries.items()])
     await message.reply_text(f"🌍 **Available Countries:**\n{country_list}")
-
-
-# 🛒 Buy a Number Command
-@app.on_message(filters.command("buy"))
-async def buy_number_command(client, message):
-    try:
-        args = message.text.split()
-
-        # 🛑 Ensure correct command format
-        if len(args) != 3:
-            await message.reply_text("⚠️ Usage: `/buy <service_id> <country_id>`\nExample: `/buy vk 6`")
-            return
-
-        _, service_id, country_id = args  # ✅ Unpack properly
-        activation_id, phone_number = buy_number(service_id, country_id)
-
-        if activation_id:
-            await message.reply_text(f"✅ **Number Purchased:** `{phone_number}`\n📩 **Waiting for OTP...**\n\nUse `/checkotp {activation_id}` to check OTP.")
-        else:
-            await message.reply_text("❌ Failed to buy a number. Try again later.")
-
-    except Exception as e:
-        await message.reply_text(f"⚠️ **Error:** `{e}`")
-
-
-# 🔄 Check OTP Command
-@app.on_message(filters.command("checkotp"))
-async def check_otp_command(client, message):
-    try:
-        args = message.text.split()
-
-        # 🛑 Ensure correct command format
-        if len(args) != 2:
-            await message.reply_text("⚠️ Usage: `/checkotp <activation_id>`\nExample: `/checkotp 123456`")
-            return
-
-        _, activation_id = args  # ✅ Unpack properly
-        otp = check_otp(activation_id)
-
-        if otp:
-            await message.reply_text(f"🔑 **OTP Received:** `{otp}`")
-        else:
-            await message.reply_text("⏳ OTP not received yet. Try again later.")
-
-    except Exception as e:
-        await message.reply_text(f"⚠️ **Error:** `{e}`")
-
-
-# ❌ Cancel Order Command
-@app.on_message(filters.command("cancel"))
-async def cancel_command(client, message):
-    try:
-        args = message.text.split()
-
-        # 🛑 Ensure correct command format
-        if len(args) != 2:
-            await message.reply_text("⚠️ Usage: `/cancel <activation_id>`\nExample: `/cancel 123456`")
-            return
-
-        _, activation_id = args  # ✅ Unpack properly
-        response = cancel_order(activation_id)
-
-        if response == "ACCESS_CANCEL":
-            await message.reply_text(f"✅ **Order Cancelled:** `{activation_id}`")
-        else:
-            await message.reply_text(f"❌ **Failed to cancel order.** Response: `{response}`")
-
-    except Exception as e:
-        await message.reply_text(f"⚠️ **Error:** `{e}`")
 
 
 # 🚀 Run the bot
