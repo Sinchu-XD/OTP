@@ -36,24 +36,34 @@ def get_countries():
         return {}
 
 
-# 📱 Get Available Services (Fixed)
+# 📱 Get Available Services (Fully Fixed)
 def get_services():
-    url = f"https://api.sms-activate.org/stubs/handler_api.php?api_key={SMS_ACTIVATE_API_KEY}&action=getTopCountriesByService"
+    url = f"https://api.sms-activate.org/stubs/handler_api.php?api_key={SMS_ACTIVATE_API_KEY}&action=getServices"
     response = requests.get(url)
 
     try:
         print(f"🔍 API Raw Response: {response.text}")  # Debugging output
 
-        data = response.json()
+        # ✅ Check if response is valid JSON
+        try:
+            data = response.json()
+        except json.JSONDecodeError:
+            print("⚠️ API Error: Response is not valid JSON. Check API Key and URL.")
+            return {}
 
-        if not isinstance(data, dict) or "data" not in data:
+        if not isinstance(data, dict):
             print("⚠️ Unexpected API response format.")
             return {}
 
-        return data["data"]  # Return only the data part
+        # ✅ Fix extraction of services
+        services_list = {}
+        for service_id, service_name in data.items():
+            services_list[service_id] = service_name
 
-    except json.JSONDecodeError:
-        print("⚠️ API Error: Failed to decode JSON.")
+        return services_list
+
+    except Exception as e:
+        print(f"⚠️ API Error (Services): {e}")
         return {}
 
 
@@ -82,7 +92,7 @@ async def balance(client, message):
     await message.reply_text(f"💰 **Your Balance:** `{balance} RUB`")
 
 
-# 📱 Get Services Command (Fixed)
+# 📱 Get Services Command (Fully Fixed)
 @app.on_message(filters.command("services"))
 async def services(client, message):
     services_data = get_services()
@@ -92,32 +102,17 @@ async def services(client, message):
         return
 
     try:
-        formatted_services = []
-        for country_id, country_data in services_data.items():
-            country_name = country_data.get("cName", "Unknown Country")
-            services_list = country_data.get("services", {})
-
-            if not services_list:
-                continue  # Skip empty service lists
-
-            service_names = "\n".join([f"`{key}` - {value}" for key, value in services_list.items()])
-            formatted_services.append(f"🌍 **{country_name}**:\n{service_names}\n")
-
-        if not formatted_services:
-            await message.reply_text("❌ No services found in the API response.")
-            return
-
-        services_text = "\n".join(formatted_services)
+        formatted_services = "\n".join([f"`{key}` - {value}" for key, value in services_data.items()])
 
         # ✅ Ensure message is within Telegram's 4096-character limit
-        for chunk in [services_text[i:i + 4000] for i in range(0, len(services_text), 4000)]:
+        for chunk in [formatted_services[i:i + 4000] for i in range(0, len(formatted_services), 4000)]:
             await message.reply_text(f"📱 **Available Services:**\n\n{chunk}")
 
     except Exception as e:
         await message.reply_text(f"⚠️ Error parsing services: {e}")
 
 
-# 🌍 Get Countries Command (Fixed)
+# 🌍 Get Countries Command
 @app.on_message(filters.command("countries"))
 async def countries(client, message):
     countries = get_countries()
