@@ -100,8 +100,8 @@ async def services(client, message):
             if not services_list:
                 continue  # Skip empty service lists
 
-            service_names = ", ".join([f"{key}: {value}" for key, value in services_list.items()])
-            formatted_services.append(f"**{country_name}**:\n`{service_names}`\n")
+            service_names = "\n".join([f"`{key}` - {value}" for key, value in services_list.items()])
+            formatted_services.append(f"🌍 **{country_name}**:\n{service_names}\n")
 
         if not formatted_services:
             await message.reply_text("❌ No services found in the API response.")
@@ -109,7 +109,9 @@ async def services(client, message):
 
         services_text = "\n".join(formatted_services)
 
-        await message.reply_text(f"📱 **Available Services:**\n\n{services_text}")
+        # ✅ Ensure message is within Telegram's 4096-character limit
+        for chunk in [services_text[i:i + 4000] for i in range(0, len(services_text), 4000)]:
+            await message.reply_text(f"📱 **Available Services:**\n\n{chunk}")
 
     except Exception as e:
         await message.reply_text(f"⚠️ Error parsing services: {e}")
