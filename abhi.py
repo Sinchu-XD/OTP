@@ -40,20 +40,32 @@ def get_countries():
 def get_services():
     url = f"https://api.sms-activate.org/stubs/handler_api.php?api_key={SMS_ACTIVATE_API_KEY}&action=getTopServices"
     response = requests.get(url)
-
+    
     try:
-        print(f"🔍 API Response (Services): {response.text}")  # ✅ Print full response
+        print(f"🔍 API Response (Services): {response.text}")  # Debugging
 
+        # Convert response to JSON if possible
         data = response.json()
-        if not data:
-            print("❌ API returned an empty response.")
+
+        if isinstance(data, str):  # Check if API returned a string instead of JSON
+            print("⚠️ API returned a string instead of JSON.")
             return {}
 
-        service_list = {key: value.get("eng", "Unknown") for key, value in data.items()}
+        service_list = {}
+        for country_id, details in data.items():
+            country_name = details.get("cName", "Unknown Country")
+            services = details.get("services", {})
+
+            service_list[country_id] = {
+                "country": country_name,
+                "services": services
+            }
+
         return service_list
     except Exception as e:
         print(f"⚠️ API Error (Services): {e}")
         return {}
+
 
 
 
