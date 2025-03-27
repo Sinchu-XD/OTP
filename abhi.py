@@ -21,16 +21,6 @@ def get_balance():
     return f"❌ API Error: {response}"
 
 
-# 🌍 Get Available Countries
-def get_countries():
-    url = f"https://api.sms-activate.org/stubs/handler_api.php?api_key={SMS_ACTIVATE_API_KEY}&action=getCountries"
-    response = requests.get(url).text
-
-    try:
-        data = json.loads(response)  # Convert to JSON
-        return {key: value.get("cName", "Unknown Country") for key, value in data.items()}
-    except json.JSONDecodeError:
-        return f"❌ API Error: {response}"
 
 
 # 📱 Get Available Services (Fully Fixed)
@@ -102,7 +92,18 @@ async def services(client, message):
         await message.reply_text(f"📱 **Available Services:**\n\n{chunk}")
 
 
-# 🌍 Get Countries Command
+def get_countries():
+    url = f"https://api.sms-activate.org/stubs/handler_api.php?api_key={SMS_ACTIVATE_API_KEY}&action=getCountries"
+    response = requests.get(url).text
+
+    try:
+        data = json.loads(response)
+        return {key: value.get("cName", "Unknown Country") for key, value in data.items()}
+    except json.JSONDecodeError:
+        return f"❌ API Error: {response}"
+
+
+# 🌍 Get Countries Command (Fixes "Message Too Long" Issue)
 @app.on_message(filters.command("countries"))
 async def countries(client, message):
     countries = get_countries()
@@ -112,7 +113,11 @@ async def countries(client, message):
         return
 
     country_list = "\n".join([f"{key}: {name}" for key, name in countries.items()])
-    await message.reply_text(f"🌍 **Available Countries:**\n{country_list}")
+
+    # ✅ Split the message if it’s too long (Telegram allows max 4096 characters per message)
+    for chunk in [country_list[i:i + 4000] for i in range(0, len(country_list), 4000)]:
+        await message.reply_text(f"🌍 **Available Countries:**\n\n{chunk}")
+
 
 
 # 🚀 Run the bot
