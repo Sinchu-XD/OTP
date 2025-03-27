@@ -58,15 +58,23 @@ async def getotp(client, message):
 @app.on_message(filters.command("buy"))
 async def buy_number_command(client, message):
     try:
-        _, service_id, country_id = message.text.split()
+        args = message.text.split()
+
+        # 🛑 Ensure at least 3 arguments: `/buy <service_id> <country_id>`
+        if len(args) != 3:
+            await message.reply_text("⚠️ Usage: `/buy <service_id> <country_id>`\nExample: `/buy vk 6`")
+            return
+
+        _, service_id, country_id = args  # ✅ Unpack properly
         activation_id, phone_number = buy_number(service_id, country_id)
-        
+
         if activation_id:
-            await message.reply_text(f"✅ Number Purchased: `{phone_number}`\n📩 Waiting for OTP...\n\nUse `/checkotp {activation_id}` to check OTP.")
+            await message.reply_text(f"✅ **Number Purchased:** `{phone_number}`\n📩 **Waiting for OTP...**\n\nUse `/checkotp {activation_id}` to check OTP.")
         else:
-            await message.reply_text("❌ Failed to buy number. Try again.")
+            await message.reply_text("❌ Failed to buy a number. Try again later.")
+
     except Exception as e:
-        await message.reply_text(f"⚠️ Error: {e}")
+        await message.reply_text(f"⚠️ **Error:** `{e}`")
 
 # 🔄 Check OTP Command
 @app.on_message(filters.command("checkotp"))
