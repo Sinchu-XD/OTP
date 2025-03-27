@@ -1,6 +1,6 @@
 import requests
 import json
-from pyrofork import Client, filters
+from pyrogram import Client, filters
 
 # ✅ Configuration
 API_ID = 25024171
