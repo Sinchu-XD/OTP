@@ -38,7 +38,7 @@ def get_countries():
 
 # 📱 Get Available Services (Fixed)
 def get_services():
-    url = f"https://api.sms-activate.org/stubs/handler_api.php?api_key={SMS_ACTIVATE_API_KEY}&action=getServices"
+    url = f"https://api.sms-activate.org/stubs/handler_api.php?api_key={SMS_ACTIVATE_API_KEY}&action=getTopServices"
     response = requests.get(url)
 
     try:
