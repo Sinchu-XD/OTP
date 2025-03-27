@@ -1,7 +1,7 @@
 import asyncio
 import requests
 import json
-from pyrogram import Client, filters
+from pyrofork import Client, filters
 
 # ✅ Configuration
 API_ID = 25024171
@@ -19,7 +19,7 @@ def get_balance():
     return response if response else "❌ Failed to fetch balance."
 
 
-# 🌍 Get Available Countries (Fixed)
+# 🌍 Get Available Countries
 def get_countries():
     url = f"https://api.sms-activate.org/stubs/handler_api.php?api_key={SMS_ACTIVATE_API_KEY}&action=getCountries"
     response = requests.get(url)
@@ -29,8 +29,7 @@ def get_countries():
         if not data:
             return {}
 
-        # ✅ Fix KeyError (Use `.get()` to avoid errors)
-        country_list = {key: value.get("eng", "Unknown") for key, value in data.items()}
+        country_list = {key: value.get("eng", "Unknown Country") for key, value in data.items()}
         return country_list
     except Exception as e:
         print(f"⚠️ API Error (Countries): {e}")
@@ -39,46 +38,23 @@ def get_countries():
 
 # 📱 Get Available Services (Fixed)
 def get_services():
-    url = f"https://api.sms-activate.org/stubs/handler_api.php?api_key={SMS_ACTIVATE_API_KEY}&action=getTopServices"
+    url = f"https://api.sms-activate.org/stubs/handler_api.php?api_key={SMS_ACTIVATE_API_KEY}&action=getTopCountriesByService"
     response = requests.get(url)
 
     try:
         print(f"🔍 API Raw Response: {response.text}")  # Debugging output
 
-        # Check if the response is JSON
-        try:
-            data = response.json()
-        except json.JSONDecodeError:
-            print("⚠️ API did not return valid JSON. Response might be an error message.")
+        data = response.json()
+
+        if not isinstance(data, dict) or "data" not in data:
+            print("⚠️ Unexpected API response format.")
             return {}
 
-        # Ensure we have a dictionary response
-        if not isinstance(data, dict):
-            print("⚠️ API returned unexpected format.")
-            return {}
+        return data["data"]  # Return only the data part
 
-        # Extract country names and services
-        service_list = {}
-        for country_id, details in data.items():
-            if isinstance(details, dict):  # Ensure details are in the expected format
-                country_name = details.get("cName", "Unknown Country")
-                services = details.get("services", {})
-
-                service_list[country_id] = {
-                    "country": country_name,
-                    "services": services
-                }
-        
-        return service_list
-    except Exception as e:
-        print(f"⚠️ API Error (Services): {e}")
+    except json.JSONDecodeError:
+        print("⚠️ API Error: Failed to decode JSON.")
         return {}
-
-# Test the function
-services = get_services()
-print(services)
-
-
 
 
 # 🚀 Start Command
@@ -109,7 +85,7 @@ async def balance(client, message):
 # 📱 Get Services Command (Fixed)
 @app.on_message(filters.command("services"))
 async def services(client, message):
-    services_data = get_services()  # Fetch services from API
+    services_data = get_services()
 
     if not services_data:
         await message.reply_text("❌ No services available.")
@@ -117,25 +93,33 @@ async def services(client, message):
 
     try:
         formatted_services = []
-        for country_id, data in services_data["data"].items():
-            country_name = data["cName"]
-            services_list = ", ".join(data["services"].keys())
+        for country_id, country_data in services_data.items():
+            country_name = country_data.get("cName", "Unknown Country")
+            services_list = country_data.get("services", {})
 
-            formatted_services.append(f"**{country_name}**:\n`{services_list}`\n")
+            if not services_list:
+                continue  # Skip empty service lists
+
+            service_names = ", ".join([f"{key}: {value}" for key, value in services_list.items()])
+            formatted_services.append(f"**{country_name}**:\n`{service_names}`\n")
+
+        if not formatted_services:
+            await message.reply_text("❌ No services found in the API response.")
+            return
 
         services_text = "\n".join(formatted_services)
 
         await message.reply_text(f"📱 **Available Services:**\n\n{services_text}")
+
     except Exception as e:
         await message.reply_text(f"⚠️ Error parsing services: {e}")
-
 
 
 # 🌍 Get Countries Command (Fixed)
 @app.on_message(filters.command("countries"))
 async def countries(client, message):
     countries = get_countries()
-    
+
     if not countries:
         await message.reply_text("❌ No countries available.")
         return
