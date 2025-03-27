@@ -1,4 +1,3 @@
-import asyncio
 import requests
 import json
 from pyrogram import Client, filters
@@ -16,55 +15,47 @@ app = Client("OTPBOT", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
 def get_balance():
     url = f"https://api.sms-activate.org/stubs/handler_api.php?api_key={SMS_ACTIVATE_API_KEY}&action=getBalance"
     response = requests.get(url).text
-    return response if response else "❌ Failed to fetch balance."
+
+    if "ACCESS_BALANCE" in response:
+        return response.split(":")[1]  # Extract balance amount
+    return f"❌ API Error: {response}"
 
 
 # 🌍 Get Available Countries
 def get_countries():
     url = f"https://api.sms-activate.org/stubs/handler_api.php?api_key={SMS_ACTIVATE_API_KEY}&action=getCountries"
-    response = requests.get(url)
+    response = requests.get(url).text
 
     try:
-        data = response.json()
-        if not data:
-            return {}
-
-        country_list = {key: value.get("eng", "Unknown Country") for key, value in data.items()}
-        return country_list
-    except Exception as e:
-        print(f"⚠️ API Error (Countries): {e}")
-        return {}
+        data = json.loads(response)  # Convert to JSON
+        return {key: value.get("eng", "Unknown") for key, value in data.items()}
+    except json.JSONDecodeError:
+        return f"❌ API Error: {response}"
 
 
 # 📱 Get Available Services (Fully Fixed)
 def get_services():
-    url = f"https://api.sms-activate.org/stubs/handler_api.php?api_key={SMS_ACTIVATE_API_KEY}&action=getServices"
-    response = requests.get(url)
+    url = f"https://api.sms-activate.org/stubs/handler_api.php?api_key={SMS_ACTIVATE_API_KEY}&action=getTopCountriesByService"
+    response = requests.get(url).text
 
     try:
-        print(f"🔍 API Raw Response: {response.text}")  # Debugging output
-
-        # ✅ Check if response is valid JSON
-        try:
-            data = response.json()
-        except json.JSONDecodeError:
-            print("⚠️ API Error: Response is not valid JSON. Check API Key and URL.")
-            return {}
-
+        data = json.loads(response)  # Convert response to JSON
         if not isinstance(data, dict):
-            print("⚠️ Unexpected API response format.")
-            return {}
+            return f"❌ Unexpected API response format: {data}"
 
-        # ✅ Fix extraction of services
         services_list = {}
-        for service_id, service_name in data.items():
-            services_list[service_id] = service_name
+        for country_id, details in data.items():
+            country_name = details.get("cName", "Unknown Country")
+            services = details.get("services", {})
+
+            services_list[country_id] = {
+                "country": country_name,
+                "services": services
+            }
 
         return services_list
-
-    except Exception as e:
-        print(f"⚠️ API Error (Services): {e}")
-        return {}
+    except json.JSONDecodeError:
+        return f"❌ API Error: {response}"
 
 
 # 🚀 Start Command
@@ -97,19 +88,22 @@ async def balance(client, message):
 async def services(client, message):
     services_data = get_services()
 
-    if not services_data:
-        await message.reply_text("❌ No services available.")
+    if isinstance(services_data, str):
+        await message.reply_text(services_data)  # API error message
         return
 
-    try:
-        formatted_services = "\n".join([f"`{key}` - {value}" for key, value in services_data.items()])
+    formatted_services = []
+    for country_id, data in services_data.items():
+        country_name = data["country"]
+        services_list = ", ".join(data["services"].keys()) if data["services"] else "No Services"
 
-        # ✅ Ensure message is within Telegram's 4096-character limit
-        for chunk in [formatted_services[i:i + 4000] for i in range(0, len(formatted_services), 4000)]:
-            await message.reply_text(f"📱 **Available Services:**\n\n{chunk}")
+        formatted_services.append(f"**{country_name}**:\n`{services_list}`\n")
 
-    except Exception as e:
-        await message.reply_text(f"⚠️ Error parsing services: {e}")
+    services_text = "\n".join(formatted_services)
+
+    # ✅ Ensure message is within Telegram's 4096-character limit
+    for chunk in [services_text[i:i + 4000] for i in range(0, len(services_text), 4000)]:
+        await message.reply_text(f"📱 **Available Services:**\n\n{chunk}")
 
 
 # 🌍 Get Countries Command
@@ -117,8 +111,8 @@ async def services(client, message):
 async def countries(client, message):
     countries = get_countries()
 
-    if not countries:
-        await message.reply_text("❌ No countries available.")
+    if isinstance(countries, str):
+        await message.reply_text(countries)  # API error message
         return
 
     country_list = "\n".join([f"{key}: {name}" for key, name in countries.items()])
